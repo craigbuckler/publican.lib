@@ -1,0 +1,50 @@
+{
+  "name": "publican.lib",
+  "version": "0.1.0",
+  "description": "Standard library of functions and utilities for Publican static sites",
+  "type": "module",
+  "main": "lib.js",
+  "exports": {
+    ".": "./lib.js",
+    "./feed": "./feed.js",
+    "./format": "./format.js",
+    "./hook": "./hook.js",
+    "./nav": "./nav.js",
+    "./replace": "./replace.js",
+    "./util": "./util.js"
+  },
+  "files": [
+    "lib.js",
+    "feed.js",
+    "format.js",
+    "hook.js",
+    "nav.js",
+    "replace.js",
+    "util.js"
+  ],
+  "engines": {
+    "node": ">= 20.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/craigbuckler/publican.lib.git"
+  },
+  "bugs": {
+    "url": "https://github.com/craigbuckler/publican.lib/issues"
+  },
+  "homepage": "https://github.com/craigbuckler/publican.lib#readme",
+  "keywords": [
+    "Publican",
+    "html",
+    "static",
+    "site",
+    "generator",
+    "ssg"
+  ],
+  "author": "Craig Buckler",
+  "funding": {
+    "type": "individual",
+    "url": "https://github.com/sponsors/craigbuckler"
+  },
+  "license": "MIT"
+}
