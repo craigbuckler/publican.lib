@@ -59,11 +59,11 @@ tacs.fn.nav = { pagination };
 
 ## feed
 
-`feed` functions help with machine-readable feeds.
+`feed` functions help with machine-readable feeds. All are available as `tacs.lib.feed.<fn>` functions after running `libInit()`.
 
 ### `rss(str, domain, root)`
 
-Removes invalid HTML attributes and ensures all URIs use absolute references. Available as `tacs.lib.feed.rss()` in templates after running `libInit()`:
+Removes invalid HTML attributes and ensures all URIs use absolute references.
 
 ```html
 <content:encoded><![CDATA[
@@ -74,13 +74,22 @@ ${ tacs.lib.feed.rss( data.contentRendered, tacs.config.domain, tacs.root ) }
 
 ### `json(str, domain, root)`
 
-Does the same as [`rss()`](#rss-str-domain-root) but also applies special encodings for JSON feeds. Available as `tacs.lib.feed.json()` in templates after running `libInit()`:
+Does the same as [`rss()`](#rssstr-domain-root) but also applies special encodings for JSON feeds.
 
 ```json
 "content_html": "${ tacs.lib.feed.json( data.contentRendered, tacs.config.domain, tacs.root ) }"
 ```
 
 Ensure special characters are fully replaced using [`replace`](#replace) settings.
+
+
+### `escape(str)`
+
+Escapes single-line HTML and XML strings.
+
+```html
+<title>${ tacs.lib.feed.escape( data.title ) }</title>
+```
 
 
 ## format

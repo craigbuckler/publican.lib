@@ -1,6 +1,6 @@
 {
   "name": "publican.lib",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Standard library of functions and utilities for Publican static sites",
   "type": "module",
   "main": "lib.js",
