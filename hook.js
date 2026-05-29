@@ -1,5 +1,6 @@
 // Publican hook functions
 import { number, dateISO } from './format.js';
+import { json } from './feed.js';
 import { cspScript } from './util.js';
 
 
@@ -102,13 +103,13 @@ export function prerenderInlineScripts( data, tacs ) {
       '"@context":"http://schema.org/",' +
       '"@type":"TechArticle",' +
       '"proficiencyLevel":"beginner",' +
-      `"headline":"${ data.title }",` +
-      `"description":"${ data.description }",` +
+      `"headline":"${ json(data.title) }",` +
+      `"description":"${ json(data.description) }",` +
       `"datePublished":"${ dateISO( data.date ) }T00:00:00+00:00",` +
       `"dateModified":"${ dateISO( data.modified || data.date ) }T00:00:00+00:00",` +
       `"mainEntityOfPage":{"@type":"WebPage","@id":"${ tacs.config.domain }${ data.link }"},` +
       `"image":"${ tacs.config.domain }${ tacs.root }${ data.hero || 'favicon.svg' }",` +
-      `"author":{"@type":"Person","name":"${ data.author || tacs.config.author || 'Publican' }","url":"${ data.authorUrl || tacs.config.authorUrl || 'https://publican.dev/' }"},` +
+      `"author":{"@type":"Person","name":"${ json(data.author || tacs.config.author || 'Publican') }","url":"${ data.authorUrl || tacs.config.authorUrl || 'https://publican.dev/' }"},` +
       `"inLanguage":"${ tacs.config.language }",` +
       '"contentLocation":"online",' +
       '"accessMode":["textual"],' +

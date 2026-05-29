@@ -18,8 +18,8 @@ export function replaceMap(root = '/') {
     [ ' style="text-align:center"', ' class="center"' ],
 
     // table scrolling
-    [ /[^<div class="tablescroll">]<table>/gm, '<div class="tablescroll"><table>' ],
-    [ /<\/table>[^</div>]/gm, '</table></div>' ],
+    [ /(?<!<div class="tablescroll">)<table>/gm, '<div class="tablescroll"><table>' ],
+    [ /<\/table>(?!<\/div>)/gm, '</table></div>' ],
 
     // unnecessary <p> container
     [ /<p>(<img.+?>)<\/p>/gim, '$1' ],

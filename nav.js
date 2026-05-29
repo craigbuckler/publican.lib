@@ -38,7 +38,7 @@ export function menuMain( tacs, currentPage, allOpen = 0, maxLevel = 5, omit = [
       if (!data.menu) return '';
 
       // get children
-      const children = level + 1 >= maxLevel || omit.includes( data.directory ) ? null : recurseNav( n.children, level + 1 ).trim();
+      const children = level + 1 >= maxLevel || !n.children || omit.includes( data.directory ) ? null : recurseNav( n.children, level + 1 ).trim();
 
       let ret = data.menu;
       if (!data.link) {
@@ -82,7 +82,7 @@ export function menuDir( tacs, rootDir, currentPage, maxLevel = 5 ) {
       if (!data.menu || (!dirFound && data.directory !== rootDir)) return '';
 
       // get children
-      const children = level >= maxLevel ? null : recurseNav( n.children, level + 1, true ).trim();
+      const children = level >= maxLevel || !n.children ? null : recurseNav( n.children, level + 1, true ).trim();
 
       let ret = data.menu;
       if (!data.link) {
@@ -128,7 +128,7 @@ export function breadcrumb( tacs, currentPage ) {
       found = found || currentPage === n.data.link;
 
       if (!found) {
-        found = recurseNav(n.children);
+        found = n.children && recurseNav(n.children);
         if (found) crumb.unshift(n.data);
       }
 
@@ -149,7 +149,7 @@ export function tagList(tacs, classPrefix = 'taglist', classMin = 1, classMax = 
   const
     minCount = tacs.tagList.at(-1).count,
     maxCount = tacs.tagList.at(0).count,
-    rangeCount = maxCount - minCount;
+    rangeCount = (maxCount - minCount) || 1;
 
   let ret = tacs.tagList.map(i => {
 

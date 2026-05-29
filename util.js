@@ -73,7 +73,7 @@ export async function apiFetch({
   const response = { ok: false, status: 0, body: null };
 
   // no URI set?
-  if (!uri) return response;
+  if (!uri || !URL.canParse(uri)) return response;
 
   // fetch method
   method = method.trim().toUpperCase();
@@ -151,7 +151,7 @@ export async function apiFetch({
     response.ok = res.status === 200;
     response.status = res.status;
 
-    if (res?.headers?.get('content-type') === jsonType) {
+    if (res?.headers?.get('content-type')?.startsWith(jsonType)) {
       response.body = await res.json();
     }
     else {
@@ -208,7 +208,9 @@ export async function fileInfo(path) {
     info.modified = i.mtimeMs;
 
   }
-  catch (e) {}
+  catch (err) {
+    // ignore error
+  }
 
   return info;
 
