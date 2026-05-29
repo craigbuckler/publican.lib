@@ -1,30 +1,29 @@
-# publican.lib
+# Publican.lib
 
-A standard library of functions and utilities for [Publican static sites](https://publican.dev/).
+A standard library of functions and utilities for [Publican static sites](https://publican.dev/). Refer to [publican.dev/tools/publican.lib/](https://publican.dev/tools/publican.lib/) for full documentation.
 
 
-## Quickstart
+## Import everything
 
-Install `publican.lib` in your Publican project:
+Install Publican.lib in your Publican project:
 
 ```bash
-npm i publican.lib
+npm install publican.lib
 ```
 
-Import it in your Publican configuration file (`publican.config.js`):
+Then import it into your Publican configuration file:
 
 ```js
-// publican.config.js
+// Publican configuration
 import { libInit } from 'publican.lib';
 ```
 
-Then pass `publican` and `tacs` to the `libInit()` initialization function before calling `await publican.build();`
+Pass `publican` and `tacs` to the `libInit()` initialization function before calling `await publican.build();`
 
 ```js
-// set Publican defaults, e.g.
-// publican.config.root = '/';
+// ...set Publican defaults...
 
-// initialize publican.dev
+// initialize publican.lib
 libInit(publican, tacs);
 
 // optionally set the default language
@@ -35,18 +34,19 @@ await publican.build();
 ```
 
 
-## Advanced setup
+## Import individual utilities
 
-The method above imports all library functions, but you can choose them on an individual basis, e.g.
+Rather than using all functionality, you can choose to import specific functions. For example, to use all formatting and the `nav.pagination()`:
 
 ```js
 // Publican configuration
 import { Publican, tacs } from 'publican';
 
+// import from Publican.lib
 import * as format from 'publican.lib/format';
 import { pagination } from 'publican.lib/nav';
 
-// create global object
+// create a global functions object
 tacs.fn = tacs.fn || {};
 
 // use all tacs.fn.format functions in templates
@@ -57,160 +57,180 @@ tacs.fn.nav = { pagination };
 ```
 
 
-## feed
+## Utility functions
 
-`feed` functions help with machine-readable feeds. All are available as `tacs.lib.feed.<fn>` functions after running `libInit()`.
+The `util` library provides utility functions you can use in your Publican configuration file or elsewhere.
 
-### `rss(str, domain, root)`
 
-Removes invalid HTML attributes and ensures all URIs use absolute references.
+### `env(name [, default])`
+
+Fetches an environment variable, converts to a numeric value where possible, and reverts to a default when necessary:
+
+```js
+// isDev true when NODE_ENV is explicitly set to "development"
+const isDev = (env('NODE_ENV', 'production') === 'development');
+```
+
+
+### `apiFetch(object)`
+
+Make an HTTP request, format the response, and cache when required. The object parameter properties:
+
+* `uri` - required
+* `method` such as `"GET"` (the default) or `"POST"`
+* `headers` - optional object with name/value pairs
+* `authKey` - optional request header `Authorization` token
+* `contentType` - optional request header `Content-Type` (JSON by default)
+* `body` - request body as a querystring, object, or array of arrays
+* `timeout` - in millseconds (default of 10000 -- 10 seconds)
+* `cacheDir` - cache directory location (not used by default)
+* `cacheMin` - the number of minutes to cache data
+
+The function returns an object with the following properties:
+
+* `ok`: either `true` or `false`
+* `status`: the HTTP status code (`200` for OK)
+* `body`: the resulting text or JSON response (or error message)
+* `error`: error code
+* `cache`: the cache file name when returning cached results
+
+Example that caches a response for 10 minutes:
+
+```js
+const res = await apiFetch({
+  uri: 'https://api.site.com/call',
+  authKey: 'mytoken',
+  cacheDir: './_cache/'
+});
+
+if (res.ok) console.log(res.body);
+```
+
+
+### `normalize(str)`
+
+Normalizes a string to lowercase characters with hyphens in place of spaces:
+
+```js
+normalize(' Publican Library 1 ');
+// returns "publican-library-1"
+```
+
+
+### `strHash(str)`
+
+Hashes a string to an MD5 hex value.
+
+```js
+strHash('Publican Library');
+```
+
+[`apiFetch()`](#apifetchobject) uses a hash of the HTTP URI, headers, and body as a filename when caching response data.
+
+
+### `cspScript(code [, type])`
+
+When passed client-side JavaScript code in a string and an optional [`type` attribute](https://developer.mozilla.org/docs/Web/HTML/Reference/Elements/script/type), `cspScript()` returns an object with the properties:
+
+* `code`: the inline code inside a `<script>` tag, and
+* `hash`: a SHA-256 hash for [Content Security Policy](https://developer.mozilla.org/docs/Web/HTTP/Guides/CSP) `script-src` settings.
+
+```js
+const tacs.myScript = cspScript('alert("Hello!")');
+```
+
+You can use this in a template:
 
 ```html
-<content:encoded><![CDATA[
-${ tacs.lib.feed.rss( data.contentRendered, tacs.config.domain, tacs.root ) }
-]]></content:encoded>
+<!-- Content Security Policy -->
+<meta http-equiv="Content-Security-Policy" content="
+default-src 'self';
+script-src 'self' 'sha256-${ tacs.myScript.hash }';
+">
+
+<!-- add inline <script> -->
+${ tacs.myScript.code }
 ```
 
-
-### `json(str, domain, root)`
-
-Does the same as [`rss()`](#rssstr-domain-root) but also applies special encodings for JSON feeds.
-
-```json
-"content_html": "${ tacs.lib.feed.json( data.contentRendered, tacs.config.domain, tacs.root ) }"
-```
-
-Ensure special characters are fully replaced using [`replace`](#replace) settings.
+> Note: Publican [minifies inline JavaScript](https://publican.dev/docs/reference/publican-options/#html-minification) by default. Always pass a minified script to `cspScript()` to ensure it's not minified and the CSP hash remains the same.
 
 
-### `escape(str)`
+### `sortBy(prop)`
 
-Escapes single-line HTML and XML strings.
-
-```html
-<title>${ tacs.lib.feed.escape( data.title ) }</title>
-```
-
-
-## format
-
-`format` functions display locale-specific values such as dates and numbers. All are available as `tacs.lib.format.<fn>` functions after running `libInit()`.
-
-
-### `setLocale(locale)`
-
-Defines the default locale when none is explicitly set in any of the following functions.
+A function to sort an array using property values, e.g.
 
 ```js
-tacs.lib.format.setLocale( 'es-ES' );
+const obj = [
+  { name: "Craig" },
+  { name: "Bob" },
+  { name: "Anne" },
+].sort( sortBy('name') );
+// in order: Anne, Bob, Craig
 ```
 
 
-### `number(num [, locale])`
+### `fileInfo(path)`
 
-Returns a formatted number with appropriate thousand and fraction symbols.
+When passed a file path, it returns an object with the following properties:
+
+* `exists`: true or false
+* `isFile`: true when a file
+* `isDir`: true when a directory
+* `modified`: the last modification timestamp
+
+Returns an object with file information:
 
 ```js
-tacs.lib.format.number( 12345.678 ); // 12,345.678 - default US
-tacs.lib.format.number( 12345.678, 'es-ES' ); // 12.345,678 - Spanish
+const
+  file = './somefile.txt',
+  info = fileInfo(file);
+
+if (info.exists) {
+
+  console.log(file);
+
+  if (info.isFile) {
+    console.log('is a file');
+  }
+  else if (info.isDir) {
+    console.log('is a directory');
+  }
+
+}
 ```
 
 
-### `currency(num, currency [, locale])`
+## Event hook functions
 
-Returns a formatted currency with appropriate thousand and fraction symbols.
+The `hook` [event functions](https://publican.dev/docs/reference/event-functions/) append supplemental data and change some aspects of static site rendering.
+
+### `processFileDate()`
+
+A [processContent hook](https://publican.dev/docs/reference/event-functions/#processcontent) that sets the content [`date`](https://publican.dev/docs/reference/content-properties/#datadate) and `modified` properties for any content file using a file name pattern `YYYY-MM-DD_something.md`.
+
+It does not alter the [rendered file slug](https://publican.dev/docs/reference/content-properties/#dataslug), but you can remove the date with:
 
 ```js
-tacs.lib.format.currency( 12345.678, 'USD' ) // $12,345.68 - default US
-tacs.lib.format.currency( 12345.678, 'USD', 'es-ES' ) // 12.345,68 $ - Spanish
+// slug replacement strings - remove YYYY-MM-DD
+publican.config.slugReplace.set(/\d{4}-\d{2}-\d{2}_/g, '');
 ```
 
 
-### `numberRound(num [, locale])`
+### `contentFilename()`
 
-Rounds a number up depending on its size:
-
-* < 1,000: to nearest 1
-* > 1,000 and < 10,000: to nearest 10
-* > 10,000 and < 100,000: to nearest 100
-* etc.
-
-```js
-tacs.lib.format.numberRound( 12345 ) // 12,400
-```
-
-
-### `dateHuman(date [, locale])`
-
-Returns a date in human-readable format:
-
-```js
-tacs.lib.format.dateHuman('2026-09-05', 'en-US') // September 5, 2026
-tacs.lib.format.dateHuman('2026-09-05', 'en-GB') // 5 September 2026
-tacs.lib.format.dateHuman('2026-09-05', 'es-ES') // 5 de septiembre de 2026
-```
-
-
-### `dateUTC(date)`
-
-Returns a date in UTC format.
-
-```js
-tacs.lib.format.dateUTC('2026-09-05') // Sat, 5 Sep 2025 00:00:00 GMT
-```
-
-
-### `dateISO(date)`
-
-Returns a date in ISO format.
-
-```js
-tacs.lib.format.dateISO('2026-09-05') // 2026-09-05
-```
-
-
-### `dateISOfull(date)`
-
-Returns a full datetime in ISO format.
-
-```js
-tacs.lib.format.dateISOfull('2026-09-05') // 2026-09-05T00:00:00.000Z
-```
-
-
-### `dateYear(date)`
-
-Returns a year.
-
-```js
-tacs.lib.format.dateYear('2026-09-05') // 2026
-```
-
-
-## hook
-
-`hook` provides event functions to append supplemental data and can change static site rendering.
-
-
-### processContent hook: `processFileDate()`
-
-Sets the `date` and `modified` date values for content when the filename matches `YYYY-MM-DD_something.md`
-
-
-### processContent hook: `contentFilename()`
-
-Parses `{{ filename }}` above markdown code blocks to create code such as:
+A [processContent hook](https://publican.dev/docs/reference/event-functions/#processcontent) that parses a  `{{ filename }}` above a code block in a markdown file. You can style the resulting HTML to show a tab or similar:
 
 ```html
 <p class="filename language-js">
-  <dfn><code class="language-js">format.js</code></dfn>
+  <dfn>myfile.js</dfn>
 </p>
+<pre class="language-js">...
 ```
 
 
-### processContent hook: `htmlBlocks()`
+### `htmlBlocks()`
 
-Replaces lines starting `:::` with HTML tags, e.g.
+A [processContent hook](https://publican.dev/docs/reference/event-functions/#processcontent) that replaces markdown lines starting `:::` with HTML tags. For example:
 
 ```md
 ::: div id="mydiv"
@@ -222,57 +242,205 @@ Some content
 
 results in the HTML:
 
-
 ```html
 <div id="mydiv">
 
-<p>Some content<p>
+  <p>Some content<p>
 
 </div>
 ```
 
 
-### processRenderStart hook: `renderstartData()`
+### `renderstartData()`
 
-Modifies the title and description of all tag index files, e.g.
+A [processRenderStart hook](https://publican.dev/docs/reference/event-functions/#processrenderstart) that modifies the title and description of all tag index files to create friendlier text such as:
 
-* title: "JavaScript" posts
-* description: List of 23 posts using the tag "JavaScript".
-
-
-### processRenderStart hook: `renderstartInlineScripts()`
-
-Creates a `tacs.script` Map that defines [CSP scripts](#cspscriptcode--type) for theming (theme) and prerender (speculation) inline scripts.
+* "JavaScript" posts
+* List of 23 posts using the tag "JavaScript".
 
 
-### processPreRender hook: `prerenderInlineScripts()`
+### `renderstartInlineScripts()`
 
-Creates a `data.script` Map for every page that defines a [CSP script](#cspscriptcode--type) for structured data.
+A [processRenderStart hook](https://publican.dev/docs/reference/event-functions/#processrenderstart) that creates a global `tacs.script` JavaScript Map that defines [inline scripts using cspScript()](#cspscriptcode--type):
 
-
-### processRenderStart hook: `renderstartTagScore()`
-
-Creates a new `tacs.tagScore` Map object that calculates a score for each tag to help determine related articles. Lesser-used tags have a higher score.
+1. `tacs.script.get('theme')`: an inline script that appends a `data-theme` attribute to the root `<html>` element using a localStorage value
+1. `tacs.script.get('speculation')`: an inline [speculation rules definition](https://developer.mozilla.org/docs/Web/API/Speculation_Rules_API)
 
 
-### processPreRender hook: `prerenderRelated()`
+### `prerenderInlineScripts()`
 
-Appends a `data.related` array to every page with a list of related articles in order of relevancy.
+A [processPreRender hook](https://publican.dev/docs/reference/event-functions/#processprerender) that creates a `data.script` JavaScript Map for every page that defines an [inline script using cspScript()](#cspscriptcode--type):
 
-
-### postrenderMeta: `postrenderMeta()`
-
-Appends a `<meta name="generator">` tag into every HTML page.
+1. `data.script.get('schema')`: an inline [schema.org](https://schema.org/) structured data block.
 
 
-## nav
+### `renderstartTagScore()`
 
-`nav` functions provide navigation functions for menus and pagination. All are available as `tacs.lib.nav.<fn>` functions after running `libInit()`.
+A [processRenderStart hook](https://publican.dev/docs/reference/event-functions/#processrenderstart) that creates a global `tacs.tagScore` JavaScript Map object that calculates a score for each tag (lesser-used tags have a higher score). This helps determine related articles.
 
 
-### `menuMain(tacs, currentPage [, allOpen, maxLevel, omit])`
+### `prerenderRelated()`
 
-Creates a hierarchical main menu using the HTML structure:
+A [processPreRender hook](https://publican.dev/docs/reference/event-functions/#processprerender) that appends a `data.related` array to every page with a list of related articles in order of relevancy. To output the three most-relevant related articles:
+
+```html
+${ data?.related?.length ? `
+  <aside>
+    <h2>Related posts</h2>
+    <nav>
+      ${ data.related
+          .slice(0,3)
+          .map(p => `<p><a href="{ p.link }">${ p.title }</a></p>`)
+          .join('') }
+    </nav>
+  </aside>
+` : ''}
+```
+
+
+### `postrenderMeta()`
+
+A [processPostRender hook](https://publican.dev/docs/reference/event-functions/#processpostrender) that inserts a Publican `<meta name="generator">` tag into the head of every HTML page.
+
+
+## Formatting functions
+
+The `format` functions display locale-specific values such as dates and numbers.
+
+
+### `setLocale(locale)`
+
+Defines the default locale when none is explicitly set in other formatting functions.
+
+```js
+tacs.lib.format.setLocale( 'es-ES' );
+```
+
+
+### `number(num [, locale])`
+
+Returns a formatted number with appropriate thousand and fraction symbols.
+
+```html
+<p>US: ${ tacs.lib.format.number( 12345.678 ) }</p>
+<p>ES: ${ tacs.lib.format.number( 12345.678, 'es-ES' ) }</p>
+```
+
+US: 12,345.678
+
+ES: 12.345,678
+
+
+### `currency(num, currency [, locale])`
+
+Returns a formatted currency with appropriate thousand and fraction symbols.
+
+```html
+<p>US: ${ tacs.lib.format.currency( 12345.678, 'USD' ) }</p>
+<p>ES: ${ tacs.lib.format.currency( 12345.678, 'USD', 'es-ES' ) }</p>
+```
+
+US: $12,345.68
+
+ES: 12.345,68 $
+
+
+### `numberRound(num [, locale])`
+
+Rounds a number up depending on its size:
+
+* < 1,000: to nearest 1
+* \> 1,000 and < 10,000: to nearest 10
+* \> 10,000 and < 100,000: to nearest 100
+* etc.
+
+```html
+<p>${ tacs.lib.format.numberRound( 12345 ) }</p>
+<p>${ tacs.lib.format.numberRound( 123456 ) }</p>
+```
+
+12,400
+
+124,000
+
+
+### `dateHuman(date [, locale])`
+
+Returns a date in human-readable format:
+
+```html
+<p>US: ${ tacs.lib.format.dateHuman('2026-09-05', 'en-US') }</p>
+<p>UK: ${ tacs.lib.format.dateHuman('2026-09-05', 'en-GB') }</p>
+<p>ES: ${ tacs.lib.format.dateHuman('2026-09-05', 'es-ES') }</p>
+```
+
+US: September 5, 2026
+
+UK: 5 September 2026
+
+ES: 5 de septiembre de 2026
+
+
+### `dateUTC(date)`
+
+Returns a date in UTC format.
+
+```html
+<pre>${ tacs.lib.format.dateUTC('2026-09-05T01:23:45') }</pre>
+```
+
+```txt
+Sat, 05 Sep 2026 00:23:45 GMT
+```
+
+
+### `dateISO(date)`
+
+Returns a date in ISO format.
+
+```html
+<pre>tacs.lib.format.dateISO('2026-09-05T01:23:45')</pre>
+```
+
+```txt
+2026-09-05
+```
+
+
+### `dateISOfull(date)`
+
+Returns a full datetime in ISO format.
+
+```html
+<pre>tacs.lib.format.dateISOfull('2026-09-05T01:23:45')</pre>
+```
+
+```txt
+2026-09-05T00:23:45.000Z
+```
+
+
+### `dateYear(date)`
+
+Returns a year.
+
+```html
+<pre>tacs.lib.format.dateYear('2026-09-05T01:23:45')</pre>
+```
+
+```txt
+2025
+```
+
+
+## Navigation functions
+
+The `nav` functions provide HTML menus and pagination.
+
+
+### `menuMain()`
+
+Creates a hierarchical main menu using the HTML `<menu>` structure with `<details>` and `<summary>` elements:
 
 ```html
 <menu>
@@ -296,13 +464,13 @@ Creates a hierarchical main menu using the HTML structure:
 </menu>
 ```
 
-Parameters:
+The function parameters in order:
 
-* `tacs` - the global `tacs` object - required
-* `currentPage` - the current page's URL from `data.link` - required
-* `allOpen` - either -1=never, 0=when child is active, or 1=always
-* `maxLevel` - the maximum depth of links
-* `omit` - an array of root directory names to omit
+* `tacs`: the global `tacs` object (required)
+* `currentPage`: the current page's URL from `data.link` (required)
+* `allOpen`: either -1=never open `<details>`, 0=when child is active, or 1=always
+* `maxLevel`: the maximum depth of links
+* `omit`: an array of root directory names to omit
 
 Use in a template:
 
@@ -313,16 +481,16 @@ Use in a template:
 ```
 
 
-### `menuDir(tacs, rootDir, currentPage [, maxLevel])`
+### `menuDir()`
 
-Creates a hierarchical menu for a specific directory using a similar structure to [`menuMain`](#menumaintacs-currentpage--allopen-maxlevel-omit), but all `<details>` have an `open` attribute set.
+Creates a hierarchical menu for a specific directory using a similar structure to [`menuMain`](#menumain), but all `<details>` have an `open` attribute set.
 
 Parameters:
 
-* `tacs` - the global `tacs` object - required
-* `rootDir` - directory name - required
-* `currentPage` - the current page's URL from `data.link` - required
-* `maxLevel` - the maximum depth of links
+* `tacs`: the global `tacs` object (required)
+* `rootDir`: the directory name (required)
+* `currentPage`: the current page's URL from `data.link` (required)
+* `maxLevel`: the maximum depth of links
 
 Use in a template:
 
@@ -333,7 +501,7 @@ Use in a template:
 ```
 
 
-### `breadcrumb(tacs, currentPage)`
+### `breadcrumb()`
 
 Creates a breadcrumb trail to the current page using the HTML structure:
 
@@ -348,8 +516,8 @@ Creates a breadcrumb trail to the current page using the HTML structure:
 
 Parameters:
 
-* `tacs` - the global `tacs` object - required
-* `currentPage` - the current page's URL from `data.link` - required
+* `tacs`: the global `tacs` object (required)
+* `currentPage`: the current page's URL from `data.link` (required)
 
 Use in a template:
 
@@ -358,9 +526,9 @@ ${ tacs.lib.nav.breadcrumb( tacs, data.link ) }
 ```
 
 
-### `tagList(tacs [, classPrefix, classMin, classMax])`
+### `tagList()`
 
-Generates a list of all tags ordered by a count of the articles using those tags using the HTML structure:
+Generates a list of all tags ordered by ascending count of the articles using those tags. It results in the HTML structure:
 
 ```html
 <nav class="taglist">
@@ -377,10 +545,10 @@ Generates a list of all tags ordered by a count of the articles using those tags
 
 Parameters:
 
-* `tacs` - the global `tacs` object - required
-* `classPrefix` - a `class` name to use (`taglist` by default)
-* `classMin` - the minimum size counter (1 by default)
-* `classMax` - the maximum size counter (5 by default)
+* `tacs`: the global `tacs` object (required)
+* `classPrefix`: a `class` name to use (`taglist` by default)
+* `classMin`: the minimum size class (1 by default)
+* `classMax`: the maximum size class (5 by default)
 
 The most-used tag has a class of `taglist5`. The least-used tag has a class of `taglist1`. All other tags have a value between.
 
@@ -391,9 +559,9 @@ ${ tacs.lib.nav.tagList(tacs) }
 ```
 
 
-### `pagination(pagination)`
+### `pagination()`
 
-Generates pagination on directory and tag index pages using the HTML structure:
+Generates pagination for directory and tag index pages using the HTML structure:
 
 ```html
 <nav class="pagination">
@@ -406,128 +574,83 @@ Generates pagination on directory and tag index pages using the HTML structure:
 </nav>
 ```
 
-Use in a template by passing the page's `data.pagination` object:
+Parameters:
+
+* `pagination`: the page's `data.pagination` object (required)
 
 ```html
 ${ tacs.lib.nav.pagination( data.pagination ) }
 ```
 
 
-## replace
+## Feed functions
 
-`replace` provides custom string replacements that fixes common HTML issues and JSON encoding.
-
-
-### `replaceMap(root)`
+The `feed` functions help create machine-readable files in JSON and XML format.
 
 
-## util
+### `rss(str, domain, root)`
 
-`util` provides utility functions you can import, e.g.
+Removes invalid HTML attributes and ensures all URIs use absolute references.
 
-```js
-import { env, apiFetch } from 'publican.lib';
+```xml
+<content:encoded><![CDATA[
+${ tacs.lib.feed.rss( data.contentRendered, tacs.config.domain, tacs.root ) }
+]]></content:encoded>
 ```
 
 
-### `env(name [, default])`
+### `json(str, domain, root)`
 
-Fetches an environment variable, converts to a numeric value where possible, and reverts to a default when necessary:
+Does the same as [`rss()`](#rssstr-domain-root) but also applies special encodings for JSON feeds that [are replaced](#json-characters).
 
-```js
-const isDev = (env('NODE_ENV', 'production') === 'development');
+```json
+"content_html": "${ tacs.lib.feed.json( data.contentRendered, tacs.config.domain, tacs.root ) }"
 ```
 
 
-### `normalize(str)`
+### `escape(str)`
 
-Normalizes a string to lowercase characters with hyphens in place of spaces:
+Escapes single-line HTML and XML strings.
 
-```js
-normalize(' Publican Library 1 '); // "publican-library-1"
+```html
+<title>${ tacs.lib.feed.escape( data.title ) }</title>
 ```
 
 
-### `strHash(str)`
+## String replacements
 
-Hashes a string to an MD5 hex value, as used by [`apiFetch()`](#apifetchobject) when caching HTTP requests:
-
-```js
-strHash('Publican Library');
-```
+The `replace` library provides a single `replaceMap()` function. It's passed the root path and returns a JavaScript Map with [string replacement](https://publican.dev/docs/setup/string-replacement/) definitions.
 
 
-### `cspScript(code [, type])`
+### Text replacements
 
-Creates the `<script>` code with it's optional [`type` attribute](https://developer.mozilla.org/docs/Web/HTML/Reference/Elements/script/type) and [Content Security Policy](https://developer.mozilla.org/docs/Web/HTTP/Guides/CSP) `script-src` SHA-256 hash for inline scripts. It returns an object with `code` and `hash` properties, e.g.
-
-```js
-const myScript = cspScript('alert("Hello!")');
-// {
-//   code: "<script>alert("Hello")</script>",
-//   hash: "abc..."
-// }
-```
+* `＿＿/` (double underscore then slash) or `−−ROOT−−` is replaced with the root path
+* `−−COPYRIGHT−−` is replaced with `©<CURRENT_YEAR>`
 
 
-### `sortBy(prop)`
+### Style replacements
 
-A function to sort an array using property values, e.g.
-
-```js
-const obj = [
-  { name: "Craig" },
-  { name: "Bob" },
-  { name: "Anne" },
-].sort( sortBy('name') );
-// now in Anne, Bob, Craig order
-```
+All elements with a `style` attribute setting the text alignment have `class="center"` or `class="right"` assigned accordingly.
 
 
-### `apiFetch(object)`
+### Table scrolling
 
-Make an HTTP request with optional caching. The object parameters:
-
-* `uri` - required
-* `method` such as `"GET"` (the default) or `"POST"`
-* `headers` - optional object with name/value pairs
-* `authKey` - optional request header Authorization token
-* `contentType` - optional request header Content-Type (JSON by default)
-* `body` - request body as a querystring, object, or array of arrays
-* `timeout` - in millseconds (default of 10000)
-* `cacheDir` - the location of the cache directory (not used by default)
-* `cacheMin` - the number of minutes to cache request data
-
-The function returns an object with the following properties:
-
-* `ok`: either `true` or `false`
-* `status`: the HTTP status code (200 for OK)
-* `body`: the resulting text or JSON response (or error message)
-* `error`: error code
-* `cache`: the cache file name when returning cached results
-
-Example:
-
-```js
-const res = await apiFetch({
-  uri: 'https://api.site.com/call',
-  authKey: 'mytoken'
-});
-
-if (res.ok) console.log(res.body);
-```
+All `<table>` elements get a `<div class="tablescroll">` container to help with scrolling on smaller devices (set `overflow-inline: auto;` in CSS).
 
 
-### `fileInfo(path)`
+### Unnecessary paragraphs
 
-Returns an object with file information:
+Unnecessary `<p>` tags are removed from around `<img>`, `<svg>`, and `<iframe>` elements.
 
-```js
-const info = fileInfo('./some-file.txt');
-// {
-//   exists: true,
-//   isFile: true,
-//   isDir: false,
-//   modified: 12345678 (timestamp)
-// }
-```
+
+### Image handling
+
+When not explicitly set on `<img>` tags:
+
+* `alt` attributes are added, and
+* `loading="lazy"` is set
+
+
+### JSON characters
+
+Special characters for [JSON feeds](#jsonstr-domain-root) are replaced.
